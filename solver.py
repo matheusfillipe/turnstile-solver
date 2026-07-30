@@ -29,6 +29,7 @@ CHROME_CANDIDATES_WINDOWS = (
 
 _profile_lock = threading.Lock()
 _profile_pool: list[str] = []
+_profile_next = 0
 
 
 def _find_chrome() -> str:
@@ -57,10 +58,13 @@ def _acquire_profile() -> str:
     than made fresh each time because Cloudflare reads a warmed profile as a
     returning visitor, which is most of why this passes at all.
     """
+    global _profile_next
     with _profile_lock:
         if _profile_pool:
             return _profile_pool.pop()
-        return f"{_profile_root()}_{os.getpid()}_{random.randint(0, 1 << 30)}"
+        path = f"{_profile_root()}_{_profile_next}"
+        _profile_next += 1
+        return path
 
 
 def _release_profile(path: str) -> None:

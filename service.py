@@ -70,7 +70,14 @@ class Handler(BaseHTTPRequestHandler):
 
         started = time.time()
         try:
-            token = solve(sitekey, siteurl, timeout=timeout)
+            try:
+                token = solve(sitekey, siteurl, timeout=timeout)
+            except TimeoutError:
+                # The failed attempt binned its profile, so this starts from a clean
+                # one. Without the retry a single poisoned profile fails the caller's
+                # whole job even though the very next request would have succeeded.
+                print(f"[service] retrying {sitekey} on a fresh profile", flush=True)
+                token = solve(sitekey, siteurl, timeout=timeout)
             elapsed = round(time.time() - started, 2)
             print(f"[service] solved {sitekey} in {elapsed}s", flush=True)
             self.send_json(200, {"token": token, "elapsed": elapsed})

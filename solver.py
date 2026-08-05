@@ -67,7 +67,16 @@ def _acquire_profile() -> str:
         return path
 
 
-def _release_profile(path: str) -> None:
+def _release_profile(path: str, *, keep: bool) -> None:
+    """Return a working profile to the pool; bin one that just failed.
+
+    A warm profile eventually turns into a poisoned one — Cloudflare stops
+    issuing tokens to it and every later solve inherits the same dead state,
+    so the service fails permanently until someone wipes the directory.
+    """
+    if not keep:
+        shutil.rmtree(path, ignore_errors=True)
+        return
     with _profile_lock:
         _profile_pool.append(path)
 
@@ -184,7 +193,7 @@ async def _solve(sitekey: str, siteurl: str, timeout: int) -> str:
     finally:
         if browser is not None:
             browser.stop()
-        _release_profile(profile)
+        _release_profile(profile, keep=token is not None)
 
     if not token:
         raise TimeoutError(f"Turnstile token not obtained within {timeout}s")
